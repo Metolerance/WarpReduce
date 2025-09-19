@@ -1,4 +1,5 @@
 #include "warp_reduce.cuh"
+#include "warp_reduce_with_padding.cuh"
 
 #define N 10000
 

@@ -22,7 +22,7 @@ __device__ void warpLevelReduce(int lane_id, int warp_id, int range, T value, T*
 
 
 /*
- * 块内规约方法1
+ * 块内规约方法1, 已废弃
  */
 template<typename T, typename Op>
 __device__ T blockLevelReduce1(int idx, int n, T* warp_result, T* block_result, Op op){
@@ -50,7 +50,7 @@ __device__ T blockLevelReduce1(int idx, int n, T* warp_result, T* block_result, 
  * 块内规约方法2
  */
 template<typename T, typename Op>
-__device__ T blockLevelReduce2(int idx, int n, T* warp_result, Op op){
+__device__ T blockLevelReduce(int idx, int n, T* warp_result, Op op){
 
     for(int step = (n+1)/2; step>0; step = (step+1)/2){
         if((idx < step) && (idx + step < n)) {
@@ -68,7 +68,7 @@ __device__ T blockLevelReduce2(int idx, int n, T* warp_result, Op op){
 
 
 /*
- * 规约核函数
+ * 规约核函数， 已废弃
  */
 template<typename T, typename Op>
 __global__ void warpReduceKernel_1(int n, T* result, T* input_data, T* block_data, Op op){
@@ -126,7 +126,7 @@ __global__ void warpReduceKernel_1(int n, T* result, T* input_data, T* block_dat
  * 规约核函数
  */
 template<typename T, typename Op>
-__global__ void warpReduceKernel_2(int n, T* result, T* input_data, Op op){
+__global__ void warpReduceKernel(int n, T* result, T* input_data, Op op){
     /*
      * 规约算法2，warp->块的循环，每块的结果用原子操作放进设备内存
      */
@@ -153,8 +153,9 @@ __global__ void warpReduceKernel_2(int n, T* result, T* input_data, Op op){
 
     if (idx < (n/WARP_SIZE + 1)*WARP_SIZE) {
         warpLevelReduce(lane_id, warp_id, thread_num, value, warp_data, op);
+        __syncthreads();
         if (n > WARP_SIZE) {
-            value = blockLevelReduce2(threadIdx.x, warp_num, warp_data, op);
+            value = blockLevelReduce(threadIdx.x, warp_num, warp_data, op);
         }
         else {
             value = warp_data[0];
@@ -174,12 +175,11 @@ T warpReduce(int n, T* h_input, Op op){
 
     // 声明变量
     T h_result = 0;
-    T* d_intput, *d_result, *d_block_data;
+    T* d_intput, *d_result;
 
     // 分配设备内存
-    CUDA_CHECK(cudaMalloc(&d_intput, n*sizeof(T)));
+    CUDA_CHECK(cudaMalloc(&d_intput, (n)*sizeof(T)));
     CUDA_CHECK(cudaMalloc(&d_result, sizeof(T)));
-//    CUDA_CHECK(cudaMalloc(&d_block_data, GRID_DIM*sizeof(T)));
 
     // 复制主机内存到设备内存
     CUDA_CHECK(cudaMemcpy(d_intput, h_input, n*sizeof(T), cudaMemcpyHostToDevice));
@@ -191,7 +191,7 @@ T warpReduce(int n, T* h_input, Op op){
 //    cudaMalloc(&d_temp_storage, temp_storage_bytes);
 //    cub::DeviceReduce::Sum( d_temp_storage, temp_storage_bytes, d_intput, d_result, n);
     // 调用核函数
-    warpReduceKernel_2<<<ceil((float)n/BLOCK_DIM), BLOCK_DIM>>>(n, d_result, d_intput, op);
+    warpReduceKernel<<<ceil((float) n / BLOCK_DIM), BLOCK_DIM>>>(n, d_result, d_intput, op);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -201,12 +201,9 @@ T warpReduce(int n, T* h_input, Op op){
     // 释放内存
     CUDA_CHECK(cudaFree(d_intput));
     CUDA_CHECK(cudaFree(d_result));
-//    CUDA_CHECK(cudaFree(d_block_data));
 
     return h_result;
 }
 
 // 模板显式实例化
 template float warpReduce<float, SumOp>(int n, float *h_input, SumOp op);
-template float warpReduce<float, MaxOp>(int n, float *h_input, MaxOp op);
-template float warpReduce<float, MinOp>(int n, float *h_input, MinOp op);
