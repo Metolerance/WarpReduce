@@ -1,2 +1,0 @@
-ID,Estimated Speedup,Function Name,Demangled Name,Duration,Runtime Improvement,Compute Throughput,Memory Throughput,# Registers,Grid Size,Block Size,Cycles
-0,7.50,warpReduceWithPaddingKernel,..warpReduceWithPaddingKernel..,3.14,0.24,7.03,7.03,24,"   79,    1,    1","  128,    1,    1","5,935"
