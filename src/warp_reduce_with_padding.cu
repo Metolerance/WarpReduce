@@ -41,15 +41,6 @@ __device__ T blockLevelReduceWithPadding(int idx, int n, T* warp_result, Op op) 
     return warp_result[0];
 }
 
-/*
- * 模板原子操作, TODO
- */
-template<typename T, typename Op>
-__device__ void atomicOperation(T* result, T value, Op op){
-    // 判定T和Op决定使用什么原子操作进行规约
-
-    return;
-}
 
 /*
  * 规约核函数
